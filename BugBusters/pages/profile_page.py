@@ -1,4 +1,5 @@
 from BugBusters.pages.base_page import BasePage
+from playwright.sync_api import expect
 
 
 class ProfilePage(BasePage):
@@ -11,7 +12,6 @@ class ProfilePage(BasePage):
         self.phone = page.locator('input[name="phone"]')
 
         self.instagram = page.locator('input[name="instagram"]')
-
         self.telegram = page.locator('input[name="telegram"]')
 
         self.new_password = page.locator('input[name="new_password"]')
@@ -22,7 +22,6 @@ class ProfilePage(BasePage):
         self.profile_tab = page.locator('a[href*="/user/personal-information"]')
         self.purchases_tab = page.locator('a[href*="/user/purchases"]')
         self.balance_tab = page.locator('a[href*="/user/balance"]')
-
         self.company_tab = page.locator('a[href*="/user/company-settings"]')
         self.events_tab = page.locator('a[href*="/user/events"]')
         self.contract_data_tab = page.locator('a[href*="/user/contract-data"]')
@@ -33,50 +32,57 @@ class ProfilePage(BasePage):
         self.publications_tab = page.locator('a[href*="/user/publications"]')
         self.management_tab = page.locator('a[href*="/user/management"]')
 
+    # def save_changes(self):
+    #     self.save_button.click()
+    #     self.page.wait_for_load_state("networkidle")
+
+    def save_changes(self):
+        self.save_button.click()
+        self.page.wait_for_timeout(3000)
+
     def update_name(self, name):
         self.first_name.fill(name)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
+        self.save_changes()
 
     def get_first_name_value(self):
         return self.first_name.input_value()
 
     def update_last_name(self, last_name):
         self.last_name.fill(last_name)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
+        self.save_changes()
 
     def get_last_name_value(self):
         return self.last_name.input_value()
-
-    def update_email(self, email):
-        self.email.fill(email)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
 
     def get_email_value(self):
         return self.email.input_value()
 
     def update_phone(self, phone):
         self.phone.fill(phone)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
+        expect(self.phone).to_have_value(phone)
+        self.save_changes()
 
     def get_phone_value(self):
         return self.phone.input_value()
 
+    # def update_phone(self, phone):
+    #     self.phone.fill(phone)
+    #     expect(self.phone).to_have_value(phone)
+    #     self.save_changes()
+    #
+    # def get_phone_value(self):
+    #     return self.phone.input_value()
+
     def update_instagram(self, instagram):
         self.instagram.fill(instagram)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
+        self.save_changes()
 
     def get_instagram_value(self):
         return self.instagram.input_value()
 
     def update_telegram(self, telegram):
         self.telegram.fill(telegram)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
+        self.save_changes()
 
     def get_telegram_value(self):
         return self.telegram.input_value()
@@ -84,8 +90,7 @@ class ProfilePage(BasePage):
     def update_password(self, new_password, confirm_password):
         self.new_password.fill(new_password)
         self.confirm_password.fill(confirm_password)
-        self.save_button.click()
-        self.page.wait_for_load_state("networkidle")
+        self.save_changes()
 
     def get_sidebar_tabs(self):
         return [

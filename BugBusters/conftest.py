@@ -1,35 +1,34 @@
+import os
+import time
+import uuid
+import pytest
+
 from playwright.sync_api import Page
-import os, uuid, pytest
 from dotenv import load_dotenv
 
 from BugBusters.app import App
 from BugBusters.data.constants import Constants
 from BugBusters.utils.popups import close_whats_new_popup
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
-
-
-@pytest.fixture(autouse=True)
-def app(page: Page):
-    page.goto(Constants.BASE_URL)
-
-    yield App(page)
-
-
-@pytest.fixture(scope="session")
-def browser_type_launch_args():
-    return {
-        "headless": False,
-        "slow_mo": 1500,
-    }
+load_dotenv(
+    dotenv_path=os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        ".env"
+    )
+)
 
 
 @pytest.fixture
-def base_user_data(app):
-    return {
-        "name": app.data.USER_NAME,
-        "password": app.data.PASSWORD,
+def app(page: Page):
+    page.goto(Constants.BASE_URL, wait_until="domcontentloaded")
+    yield App(page)
 
+
+@pytest.fixture
+def base_user_data():
+    return {
+        "name": Constants.USER_NAME,
+        "password": Constants.PASSWORD,
     }
 
 
@@ -37,25 +36,27 @@ def base_user_data(app):
 def new_user_data(base_user_data):
     return {
         **base_user_data,
-        "email": f"qa_user_{uuid.uuid4().hex[:5]}@gmail.com"
+        "email": f"qa_user_{uuid.uuid4().hex[:5]}@gmail.com",
     }
 
 
 @pytest.fixture
-def existing_user_data(app, base_user_data):
+def existing_user_data(base_user_data):
     return {
         **base_user_data,
-        "email": app.data.EMAIL
+        "email": Constants.EMAIL,
     }
 
 
 @pytest.fixture
-def login_user_data(app):
-    return {
-        "email": app.data.EMAIL,
-        "password": app.data.PASSWORD,
-    }
+def login_user_data():
+    assert Constants.EMAIL, "EMAIL не найден в .env"
+    assert Constants.PASSWORD, "PASSWORD не найден в .env"
 
+    return {
+        "email": Constants.EMAIL,
+        "password": Constants.PASSWORD,
+    }
 
 @pytest.fixture
 def authorized_page(browser, login_user_data):
@@ -66,6 +67,8 @@ def authorized_page(browser, login_user_data):
             "Referer": Constants.BASE_URL,
         }
     )
+
+    context.set_default_navigation_timeout(60000)
 
     login_response = context.request.post(
         "/api/auth/login",
@@ -80,25 +83,42 @@ def authorized_page(browser, login_user_data):
         f"Login failed: {login_response.status} {login_response.text()}"
     )
 
-    access_token = login_response.json()["data"]["access_token"]
+    login_data = login_response.json()
+    access_token = login_data["data"]["access_token"]
+
+    context.add_cookies([
+        {
+            "name": "access_token",
+            "value": access_token,
+            "domain": "stg.polakohedonist.club",
+            "path": "/",
+            "expires": int(time.time()) + 20 * 60,
+            "httpOnly": False,
+            "secure": True,
+            "sameSite": "Lax",
+        }
+    ])
 
     page = context.new_page()
 
-    page.goto(Constants.BASE_URL)
-    page.evaluate(
-        """token => {
-            localStorage.setItem("access_token", token);
-            localStorage.setItem("token", token);
-        }""",
-        access_token
+    page.goto(
+        f"{Constants.BASE_URL}/user/personal-information",
+        wait_until="domcontentloaded",
+        timeout=60000
     )
 
-    page.goto(f"{Constants.BASE_URL}/user/personal-information")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("networkidle", timeout=15000)
 
     close_whats_new_popup(page)
 
-    print("AUTHORIZED PAGE URL:", page.url)
+    assert "/user/personal-information" in page.url, (
+        f"User is not authorized. Current URL: {page.url}"
+    )
+
+    page.locator('input[name="email"]').wait_for(
+        state="visible",
+        timeout=15000
+    )
 
     yield page
 
